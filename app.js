@@ -1,12 +1,12 @@
 // Automatically detect backend API base URL
-// Agar backend alag free host (jaise Hugging Face) par ho, to uska URL yahan daalein:
-const BACKEND_SERVICE_URL = ""; // e.g. "https://username-space.hf.space"
+// Agar local chal raha ho to local server, warna Render backend URL use karega:
+const IS_LOCAL = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+const BACKEND_SERVICE_URL = "https://musictool.onrender.com";
 
-const API_BASE = BACKEND_SERVICE_URL || (
-  (window.location.protocol === "http:" || window.location.protocol === "https:")
-    ? window.location.origin
-    : "https://musictool.onrender.com/"
-);
+const API_BASE = IS_LOCAL
+  ? window.location.origin
+  : BACKEND_SERVICE_URL;
+
 const API_URL = `${API_BASE}/api/download`;
 
 const urlInput = document.getElementById("url");
