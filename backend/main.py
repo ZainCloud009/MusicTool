@@ -3,11 +3,14 @@ import uuid
 import re
 import time
 import mimetypes
+import json
+import urllib.request
+import urllib.parse
 
 import yt_dlp
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
 app = FastAPI(title="Social Video Downloader API")
@@ -41,96 +44,238 @@ def cleanup_old_files(max_age_seconds: int = 3600):
         pass
 
 
+def expand_short_url(url: str) -> str:
+    """Expand short URLs like vt.tiktok.com, vm.tiktok.com, youtu.be, etc."""
+    try:
+        req = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+            }
+        )
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            return resp.geturl()
+    except Exception:
+        return url
+
+
+def extract_tiktok_fast(url: str):
+    """
+    Fast extraction for TikTok videos without watermark.
+    Bypasses age restrictions, mature content filters, and login/cookies blocks!
+    """
+    try:
+        api_url = "https://www.tikwm.com/api/"
+        post_data = urllib.parse.urlencode({"url": url, "hd": 1}).encode("utf-8")
+        req = urllib.request.Request(
+            api_url,
+            data=post_data,
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+                "Accept": "application/json",
+                "Content-Type": "application/x-www-form-urlencoded"
+            }
+        )
+        with urllib.request.urlopen(req, timeout=12) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+
+        if data.get("code") == 0 and "data" in data:
+            d = data["data"]
+            video_url = d.get("play") or d.get("wmplay")
+            if not video_url:
+                return None
+
+            raw_title = d.get("title") or "TikTok Video"
+            # Strip special characters for safe filenames
+            clean_name = re.sub(r'[^\w\s-]', '', raw_title).strip()
+            clean_name = re.sub(r'\s+', '_', clean_name)[:60] or "tiktok_video"
+
+            author = d.get("author", {}).get("nickname") or "TikTok Creator"
+            thumbnail = d.get("cover")
+            duration = d.get("duration")
+            music_url = d.get("music")
+
+            encoded_video = urllib.parse.quote(video_url, safe="")
+            download_url = f"/api/stream?url={encoded_video}&name={clean_name}.mp4"
+
+            music_download_url = None
+            if music_url:
+                encoded_music = urllib.parse.quote(music_url, safe="")
+                music_download_url = f"/api/stream?url={encoded_music}&name={clean_name}_audio.mp3"
+
+            return {
+                "success": True,
+                "filename": f"{clean_name}.mp4",
+                "title": raw_title,
+                "thumbnail": thumbnail,
+                "duration": duration,
+                "uploader": author,
+                "download_url": download_url,
+                "music_url": music_download_url
+            }
+    except Exception:
+        return None
+    return None
+
+
 class DownloadRequest(BaseModel):
     url: str
 
 
 @app.post("/api/download")
 def download_video(request: DownloadRequest):
-    # Run a quick cleanup of files older than 1 hour
     cleanup_old_files()
 
     url = request.url.strip()
     if not url.startswith(("http://", "https://")):
         raise HTTPException(status_code=400, detail="Invalid URL. Please provide a full link starting with http:// or https://")
 
+    # 1. Expand shortened links (e.g. vt.tiktok.com, vm.tiktok.com, youtu.be)
+    expanded_url = expand_short_url(url)
+
+    # 2. Ultra-fast TikTok engine with zero-watermark and bypass of age/login blocks
+    if "tiktok.com" in expanded_url.lower() or "tiktok.com" in url.lower():
+        tiktok_res = extract_tiktok_fast(expanded_url)
+        if not tiktok_res and expanded_url != url:
+            tiktok_res = extract_tiktok_fast(url)
+        if tiktok_res:
+            return tiktok_res
+
+    # 3. Universal engine (YouTube, Instagram, Facebook, Twitter/X, Snapchat, etc.) via optimized yt-dlp
     job_id = uuid.uuid4().hex
 
-    # Options optimized for social media platforms (YouTube, Instagram, TikTok, Facebook, Twitter/X, etc.)
     options = {
         "outtmpl": str(DOWNLOAD_DIR / f"{job_id}.%(ext)s"),
-        # Try MP4 video + M4A audio first, then any best video + audio (ffmpeg merges to MP4), then best single stream or audio
-        "format": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best[ext=mp4]/bestaudio/best",
+        # Prefer ready MP4 or pre-merged stream first for lightning-fast download without CPU heavy muxing
+        "format": "best[ext=mp4]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best",
         "merge_output_format": "mp4",
         "noplaylist": True,
         "quiet": True,
         "no_warnings": True,
-        "js_runtimes": {"node": {}},
+        "socket_timeout": 20,
+        "concurrent_fragment_downloads": 4,
+        "buffersize": 1024 * 64,
+        "extractor_args": {
+            "youtube": {
+                "player_client": ["android", "web"],
+                "skip": ["hls"]
+            },
+            "tiktok": {
+                "app_version": "34.1.2"
+            }
+        },
         "http_headers": {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
             "Accept-Language": "en-US,en;q=0.9",
         },
-        "extractor_retries": 3,
-        "file_access_retries": 3,
-        "fragment_retries": 3,
+        "extractor_retries": 2,
+        "file_access_retries": 2,
+        "fragment_retries": 2,
     }
 
     try:
         with yt_dlp.YoutubeDL(options) as ydl:
-            info = ydl.extract_info(url, download=True)
+            info = ydl.extract_info(expanded_url, download=True)
             if not info:
-                raise RuntimeError("Could not retrieve video information from the provided link.")
+                raise RuntimeError("Could not retrieve media information from the provided link.")
 
-        # Find the downloaded file matching this job_id
         candidates = [
             f for f in DOWNLOAD_DIR.glob(f"{job_id}.*")
             if not f.name.endswith((".part", ".ytdl", ".temp", ".aria2"))
         ]
 
         if not candidates:
-            raise RuntimeError("Downloaded file was not found on the server.")
+            raise RuntimeError("Downloaded media file was not found on the server.")
 
-        # Prefer .mp4 file if available
         mp4_candidates = [f for f in candidates if f.suffix.lower() == ".mp4"]
         target_file = mp4_candidates[0] if mp4_candidates else candidates[0]
 
-        title = info.get("title") or "Downloaded Video"
+        raw_title = info.get("title") or "Downloaded Media"
+        clean_name = re.sub(r'[^\w\s-]', '', raw_title).strip()
+        clean_name = re.sub(r'\s+', '_', clean_name)[:60] or "downloaded_video"
+
         thumbnail = info.get("thumbnail")
         duration = info.get("duration")
         uploader = info.get("uploader") or info.get("channel") or info.get("extractor_key") or "Social Media"
 
         return {
             "success": True,
-            "filename": target_file.name,
-            "title": title,
+            "filename": f"{clean_name}{target_file.suffix}",
+            "title": raw_title,
             "thumbnail": thumbnail,
             "duration": duration,
             "uploader": uploader,
-            "download_url": f"/api/file/{target_file.name}"
+            "download_url": f"/api/file/{target_file.name}?name={urllib.parse.quote(clean_name + target_file.suffix)}"
         }
 
     except Exception as exc:
         raw_msg = str(exc)
-        # Strip ANSI escape codes
         clean_msg = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', raw_msg).strip()
 
-        # Provide friendly translations for common platform errors
         if "Requested format is not available" in clean_msg:
-            clean_msg = "Could not find a downloadable video format for this link."
+            clean_msg = "Could not find a downloadable format for this link."
         elif "Sign in to confirm you're not a bot" in clean_msg:
-            clean_msg = "The platform is blocking automated requests. Try again in a minute or try another video."
+            clean_msg = "The platform is temporarily limiting requests. Please try another video or wait 1 minute."
         elif "Private video" in clean_msg:
-            clean_msg = "This video is private or restricted."
+            clean_msg = "This video is private or restricted by the creator."
         elif "Video unavailable" in clean_msg:
             clean_msg = "This video is unavailable or has been removed."
+        elif "This post may not be comfortable" in clean_msg or "Log in for access" in clean_msg:
+            clean_msg = "This post is age-restricted or restricted by the platform."
 
         raise HTTPException(status_code=400, detail=clean_msg[:300])
 
 
+@app.get("/api/stream")
+def stream_media(url: str, name: str = "video.mp4"):
+    """High-speed real-time streaming endpoint for direct CDN downloads."""
+    try:
+        decoded_url = urllib.parse.unquote(url)
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Referer": "https://www.tiktok.com/"
+        }
+
+        req = urllib.request.Request(decoded_url, headers=headers)
+        remote_resp = urllib.request.urlopen(req, timeout=30)
+
+        clean_name = re.sub(r'[^\w\s.-]', '_', urllib.parse.unquote(name)).strip()
+        if not clean_name:
+            clean_name = "download.mp4"
+
+        mime_type, _ = mimetypes.guess_type(clean_name)
+        if not mime_type:
+            mime_type = "video/mp4"
+
+        def iter_stream():
+            try:
+                while True:
+                    chunk = remote_resp.read(64 * 1024)
+                    if not chunk:
+                        break
+                    yield chunk
+            finally:
+                remote_resp.close()
+
+        response_headers = {
+            "Content-Disposition": f'attachment; filename="{clean_name}"',
+            "Accept-Ranges": "bytes"
+        }
+        if "Content-Length" in remote_resp.headers:
+            response_headers["Content-Length"] = remote_resp.headers["Content-Length"]
+
+        return StreamingResponse(
+            iter_stream(),
+            media_type=mime_type,
+            headers=response_headers
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Streaming error: {str(exc)[:150]}")
+
+
 @app.api_route("/api/file/{filename}", methods=["GET", "HEAD"])
-def get_file(filename: str):
-    # Prevent path traversal
+def get_file(filename: str, name: str = None):
     safe_name = Path(filename).name
     path = DOWNLOAD_DIR / safe_name
 
@@ -141,12 +286,16 @@ def get_file(filename: str):
     if not mime_type:
         mime_type = "video/mp4"
 
+    out_name = urllib.parse.unquote(name) if name else safe_name
+    clean_name = re.sub(r'[^\w\s.-]', '_', out_name).strip()
+
     return FileResponse(
         path,
         media_type=mime_type,
-        filename=safe_name,
-        headers={"Content-Disposition": f'attachment; filename="{safe_name}"'}
+        filename=clean_name,
+        headers={"Content-Disposition": f'attachment; filename="{clean_name}"'}
     )
+
 
 
 # Serve frontend directly from the root so users can open freemusicdownload.site or http://localhost:8000

@@ -325,8 +325,13 @@ downloadBtn.addEventListener("click", async () => {
             <span class="meta-tag meta-format">MP4 HD</span>
           </div>
           <a href="${escapeHtml(fileUrl)}" download="${escapeHtml(data.filename || 'video.mp4')}" class="direct-download-btn">
-            ⬇ Save Video to Device
+            ⬇ Save Video to Device (MP4)
           </a>
+          ${data.music_url ? `
+          <a href="${escapeHtml(data.music_url.startsWith('http') ? data.music_url : `${API_BASE}${data.music_url}`)}" download="${escapeHtml((data.filename || 'audio').replace(/\.mp4$/i, ''))}.mp3" class="direct-download-btn" style="margin-top: 8px; background: rgba(236,72,153,0.18); border: 1px solid rgba(236,72,153,0.4); color: #f472b6;">
+            🎵 Download Music / Audio (MP3)
+          </a>
+          ` : ""}
         </div>
       </div>
     `;
