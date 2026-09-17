@@ -5,7 +5,7 @@ const BACKEND_SERVICE_URL = ""; // e.g. "https://username-space.hf.space"
 const API_BASE = BACKEND_SERVICE_URL || (
   (window.location.protocol === "http:" || window.location.protocol === "https:")
     ? window.location.origin
-    : "https://freemusicdownload.site"
+    : "https://musictool.onrender.com/"
 );
 const API_URL = `${API_BASE}/api/download`;
 
