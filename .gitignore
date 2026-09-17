@@ -1,0 +1,12 @@
+﻿venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+backend/__pycache__/
+backend/downloads/*
+!backend/downloads/.gitkeep
+.kilo/
+.kilocode/
+*.log
+.DS_Store
