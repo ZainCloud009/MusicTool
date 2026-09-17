@@ -309,29 +309,72 @@ downloadBtn.addEventListener("click", async () => {
     stopProgressAnimation(true);
     statusEl.textContent = "Video ready! Downloading ✓";
 
-    const fileUrl = data.download_url.startsWith("http")
+    const downloadUrl = data.download_url.startsWith("http")
       ? data.download_url
       : `${API_BASE}${data.download_url}`;
 
-    // Build rich video preview card
+    const previewUrl = data.preview_url
+      ? (data.preview_url.startsWith("http") ? data.preview_url : `${API_BASE}${data.preview_url}`)
+      : downloadUrl;
+
+    const musicUrl = data.music_url
+      ? (data.music_url.startsWith("http") ? data.music_url : `${API_BASE}${data.music_url}`)
+      : null;
+
+    const videoFilename = data.filename || "video.mp4";
+    const audioFilename = videoFilename.replace(/\.[a-z0-9]+$/i, "") + ".mp3";
+
+    // Build rich video preview card with playable video player & poster thumbnail
     let cardContent = `
       <div class="preview-card">
-        ${data.thumbnail ? `<div class="preview-thumb-wrap"><img src="${escapeHtml(data.thumbnail)}" alt="Thumbnail" class="preview-thumb" onerror="this.parentElement.style.display='none'"></div>` : ""}
+        <!-- Playable in-tool video player with proper thumbnail cover -->
+        <div class="preview-media-container">
+          <video 
+            id="previewVideoPlayer" 
+            class="preview-video" 
+            controls 
+            playsinline 
+            preload="metadata" 
+            poster="${escapeHtml(data.thumbnail || '')}">
+            <source src="${escapeHtml(previewUrl)}" type="video/mp4">
+            ${data.thumbnail ? `<img src="${escapeHtml(data.thumbnail)}" alt="Thumbnail" class="preview-thumb">` : ""}
+            Your browser does not support inline video playback.
+          </video>
+        </div>
+
         <div class="preview-details">
           <div class="preview-title">${escapeHtml(data.title || "Social Video")}</div>
           <div class="preview-meta">
             ${data.uploader ? `<span class="meta-tag">👤 ${escapeHtml(data.uploader)}</span>` : ""}
             ${data.duration ? `<span class="meta-tag">⏱ ${formatDuration(data.duration)}</span>` : ""}
-            <span class="meta-tag meta-format">MP4 HD</span>
+            <span class="meta-tag meta-format">🎬 MP4 HD</span>
           </div>
-          <a href="${escapeHtml(fileUrl)}" download="${escapeHtml(data.filename || 'video.mp4')}" class="direct-download-btn">
-            ⬇ Save Video to Device (MP4)
-          </a>
-          ${data.music_url ? `
-          <a href="${escapeHtml(data.music_url.startsWith('http') ? data.music_url : `${API_BASE}${data.music_url}`)}" download="${escapeHtml((data.filename || 'audio').replace(/\.mp4$/i, ''))}.mp3" class="direct-download-btn" style="margin-top: 8px; background: rgba(236,72,153,0.18); border: 1px solid rgba(236,72,153,0.4); color: #f472b6;">
-            🎵 Download Music / Audio (MP3)
-          </a>
-          ` : ""}
+
+          <!-- Download Action Buttons for Mobile Gallery & Desktop -->
+          <div class="download-actions-grid">
+            <a href="${escapeHtml(downloadUrl)}" download="${escapeHtml(videoFilename)}" class="download-action-btn btn-primary" id="saveVideoBtn">
+              <span class="btn-icon">⬇</span>
+              <span class="btn-copy">
+                <strong>Save Video to Gallery / PC</strong>
+                <small>Full HD MP4 Video</small>
+              </span>
+            </a>
+
+            ${musicUrl ? `
+            <a href="${escapeHtml(musicUrl)}" download="${escapeHtml(audioFilename)}" class="download-action-btn btn-music" id="saveAudioBtn">
+              <span class="btn-icon">🎵</span>
+              <span class="btn-copy">
+                <strong>Download Audio / Song</strong>
+                <small>High Quality MP3 Sound</small>
+              </span>
+            </a>
+            ` : ""}
+          </div>
+
+          <div class="download-tip-box">
+            <span>💡</span>
+            <span>Video aapke mobile ki <strong>Gallery / Photos</strong> ya PC ke <strong>Downloads</strong> folder me proper save hogi.</span>
+          </div>
         </div>
       </div>
     `;
@@ -341,7 +384,7 @@ downloadBtn.addEventListener("click", async () => {
     resultEl.classList.remove("hidden");
 
     // Automatically trigger browser download
-    triggerDownload(fileUrl, data.filename);
+    triggerDownload(downloadUrl, videoFilename);
 
   } catch (err) {
     stopProgressAnimation(false);

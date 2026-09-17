@@ -8,7 +8,7 @@ import urllib.request
 import urllib.parse
 
 import yt_dlp
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
@@ -96,12 +96,13 @@ def extract_tiktok_fast(url: str):
             music_url = d.get("music")
 
             encoded_video = urllib.parse.quote(video_url, safe="")
-            download_url = f"/api/stream?url={encoded_video}&name={clean_name}.mp4"
+            download_url = f"/api/stream?url={encoded_video}&name={clean_name}.mp4&dl=1"
+            preview_url = f"/api/stream?url={encoded_video}&name={clean_name}.mp4&dl=0"
 
             music_download_url = None
             if music_url:
                 encoded_music = urllib.parse.quote(music_url, safe="")
-                music_download_url = f"/api/stream?url={encoded_music}&name={clean_name}_audio.mp3"
+                music_download_url = f"/api/stream?url={encoded_music}&name={clean_name}_audio.mp3&dl=1"
 
             return {
                 "success": True,
@@ -110,6 +111,7 @@ def extract_tiktok_fast(url: str):
                 "thumbnail": thumbnail,
                 "duration": duration,
                 "uploader": author,
+                "preview_url": preview_url,
                 "download_url": download_url,
                 "music_url": music_download_url
             }
@@ -199,6 +201,7 @@ def download_video(request: DownloadRequest):
         duration = info.get("duration")
         uploader = info.get("uploader") or info.get("channel") or info.get("extractor_key") or "Social Media"
 
+        quoted_name = urllib.parse.quote(clean_name + target_file.suffix)
         return {
             "success": True,
             "filename": f"{clean_name}{target_file.suffix}",
@@ -206,7 +209,8 @@ def download_video(request: DownloadRequest):
             "thumbnail": thumbnail,
             "duration": duration,
             "uploader": uploader,
-            "download_url": f"/api/file/{target_file.name}?name={urllib.parse.quote(clean_name + target_file.suffix)}"
+            "preview_url": f"/api/file/{target_file.name}?name={quoted_name}&dl=0",
+            "download_url": f"/api/file/{target_file.name}?name={quoted_name}&dl=1"
         }
 
     except Exception as exc:
@@ -228,14 +232,18 @@ def download_video(request: DownloadRequest):
 
 
 @app.get("/api/stream")
-def stream_media(url: str, name: str = "video.mp4"):
-    """High-speed real-time streaming endpoint for direct CDN downloads."""
+def stream_media(request: Request, url: str, name: str = "video.mp4", dl: int = 1):
+    """High-speed real-time streaming endpoint for direct CDN downloads and video preview."""
     try:
         decoded_url = urllib.parse.unquote(url)
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
             "Referer": "https://www.tiktok.com/"
         }
+
+        client_range = request.headers.get("range")
+        if client_range:
+            headers["Range"] = client_range
 
         req = urllib.request.Request(decoded_url, headers=headers)
         remote_resp = urllib.request.urlopen(req, timeout=30)
@@ -248,6 +256,8 @@ def stream_media(url: str, name: str = "video.mp4"):
         if not mime_type:
             mime_type = "video/mp4"
 
+        disposition = "attachment" if int(dl) == 1 else "inline"
+
         def iter_stream():
             try:
                 while True:
@@ -258,16 +268,24 @@ def stream_media(url: str, name: str = "video.mp4"):
             finally:
                 remote_resp.close()
 
+        status_code = remote_resp.status if remote_resp.status in (200, 206) else 200
+
         response_headers = {
-            "Content-Disposition": f'attachment; filename="{clean_name}"',
-            "Accept-Ranges": "bytes"
+            "Content-Disposition": f'{disposition}; filename="{clean_name}"',
+            "Accept-Ranges": "bytes",
+            "Access-Control-Allow-Origin": "*"
         }
-        if "Content-Length" in remote_resp.headers:
-            response_headers["Content-Length"] = remote_resp.headers["Content-Length"]
+        for hdr in ("Content-Length", "Content-Range", "Content-Type"):
+            if hdr in remote_resp.headers:
+                response_headers[hdr] = remote_resp.headers[hdr]
+
+        if "Content-Type" not in response_headers:
+            response_headers["Content-Type"] = mime_type
 
         return StreamingResponse(
             iter_stream(),
-            media_type=mime_type,
+            status_code=status_code,
+            media_type=response_headers.get("Content-Type", mime_type),
             headers=response_headers
         )
     except Exception as exc:
@@ -275,7 +293,7 @@ def stream_media(url: str, name: str = "video.mp4"):
 
 
 @app.api_route("/api/file/{filename}", methods=["GET", "HEAD"])
-def get_file(filename: str, name: str = None):
+def get_file(filename: str, name: str = None, dl: int = 1):
     safe_name = Path(filename).name
     path = DOWNLOAD_DIR / safe_name
 
@@ -289,11 +307,17 @@ def get_file(filename: str, name: str = None):
     out_name = urllib.parse.unquote(name) if name else safe_name
     clean_name = re.sub(r'[^\w\s.-]', '_', out_name).strip()
 
+    disposition = "attachment" if int(dl) == 1 else "inline"
+
     return FileResponse(
         path,
         media_type=mime_type,
         filename=clean_name,
-        headers={"Content-Disposition": f'attachment; filename="{clean_name}"'}
+        headers={
+            "Content-Disposition": f'{disposition}; filename="{clean_name}"',
+            "Accept-Ranges": "bytes",
+            "Access-Control-Allow-Origin": "*"
+        }
     )
 
 

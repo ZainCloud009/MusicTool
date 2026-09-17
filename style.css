@@ -589,22 +589,32 @@ input::placeholder {
   gap: 14px;
 }
 
-.preview-thumb-wrap {
+.preview-media-container {
   width: 100%;
-  max-height: 220px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   overflow: hidden;
   background: #020617;
+  position: relative;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.preview-video {
+  width: 100%;
+  max-height: 400px;
+  background: #000;
+  display: block;
+  border-radius: var(--radius-md);
+  outline: none;
 }
 
 .preview-thumb {
   width: 100%;
   height: auto;
-  max-height: 220px;
+  max-height: 380px;
   object-fit: cover;
   display: block;
 }
@@ -612,7 +622,7 @@ input::placeholder {
 .preview-details {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 
 .preview-title {
@@ -649,27 +659,87 @@ input::placeholder {
   font-weight: 700;
 }
 
-.direct-download-btn {
+.download-actions-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.download-action-btn {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
-  background: linear-gradient(135deg, #10b981, #059669);
-  color: #fff;
+  gap: 14px;
+  padding: 13px 18px;
+  border-radius: var(--radius-md);
   text-decoration: none;
-  font-weight: 700;
-  font-size: 1rem;
-  padding: 14px 20px;
-  border-radius: var(--radius-sm);
-  margin-top: 4px;
-  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.3);
+  font-family: inherit;
+  cursor: pointer;
+  border: 1px solid transparent;
   transition: all var(--transition-fast);
 }
 
-.direct-download-btn:hover {
-  transform: translateY(-1px);
+.download-action-btn.btn-primary {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #fff;
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.3);
+}
+
+.download-action-btn.btn-primary:hover {
+  transform: translateY(-2px);
   filter: brightness(1.1);
   box-shadow: 0 10px 25px rgba(16, 185, 129, 0.45);
+}
+
+.download-action-btn.btn-music {
+  background: linear-gradient(135deg, rgba(236, 72, 153, 0.18), rgba(168, 85, 247, 0.18));
+  border: 1px solid rgba(236, 72, 153, 0.45);
+  color: #f472b6;
+}
+
+.download-action-btn.btn-music:hover {
+  background: linear-gradient(135deg, rgba(236, 72, 153, 0.28), rgba(168, 85, 247, 0.28));
+  border-color: rgba(236, 72, 153, 0.65);
+  color: #fff;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 22px rgba(236, 72, 153, 0.3);
+}
+
+.download-action-btn .btn-icon {
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.download-action-btn .btn-copy {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.download-action-btn .btn-copy strong {
+  font-size: 0.98rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.download-action-btn .btn-copy small {
+  font-size: 0.76rem;
+  opacity: 0.85;
+  font-weight: 500;
+}
+
+.download-tip-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px dashed rgba(59, 130, 246, 0.28);
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  color: #93c5fd;
+  font-size: 0.8rem;
+  margin-top: 4px;
+  line-height: 1.4;
 }
 
 /* Quick Supported Pills */
