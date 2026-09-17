@@ -1,8 +1,12 @@
 // Automatically detect backend API base URL
-// Works seamlessly on https://freemusicdownload.site, local development, or when opened directly
-const API_BASE = (window.location.protocol === "http:" || window.location.protocol === "https:")
-  ? window.location.origin
-  : "https://freemusicdownload.site";
+// Agar backend alag free host (jaise Hugging Face) par ho, to uska URL yahan daalein:
+const BACKEND_SERVICE_URL = ""; // e.g. "https://username-space.hf.space"
+
+const API_BASE = BACKEND_SERVICE_URL || (
+  (window.location.protocol === "http:" || window.location.protocol === "https:")
+    ? window.location.origin
+    : "https://freemusicdownload.site"
+);
 const API_URL = `${API_BASE}/api/download`;
 
 const urlInput = document.getElementById("url");
