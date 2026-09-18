@@ -368,3 +368,13 @@ def serve_sitemap():
     if sitemap_file.exists():
         return FileResponse(sitemap_file, media_type="application/xml")
     raise HTTPException(status_code=404, detail="sitemap.xml not found")
+
+
+@app.get("/{page}.html")
+def serve_html_page(page: str):
+    safe_name = re.sub(r'[^a-zA-Z0-9_-]', '', page)
+    target_file = PROJECT_ROOT / f"{safe_name}.html"
+    if target_file.exists():
+        return FileResponse(target_file, media_type="text/html")
+    raise HTTPException(status_code=404, detail=f"{page}.html not found")
+

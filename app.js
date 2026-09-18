@@ -116,8 +116,31 @@ mobileDrawerLinks.forEach(link => {
   });
 });
 
-// Unified Platform Selection (for both Desktop navbar & Mobile drawer)
-function selectPlatform(platform) {
+// Map platforms to dedicated landing pages
+const platformPages = {
+  all: "index.html",
+  music: "index.html",
+  tiktok: "tiktok.html",
+  youtube: "youtube.html",
+  instagram: "instagram.html",
+  facebook: "facebook.html",
+  twitter: "twitter.html",
+  snapchat: "snapchat.html"
+};
+
+function detectCurrentPlatform() {
+  const path = window.location.pathname.toLowerCase();
+  if (path.includes("tiktok")) return "tiktok";
+  if (path.includes("youtube")) return "youtube";
+  if (path.includes("instagram")) return "instagram";
+  if (path.includes("facebook")) return "facebook";
+  if (path.includes("twitter")) return "twitter";
+  if (path.includes("snapchat")) return "snapchat";
+  return "all";
+}
+
+// Unified Platform Selection
+function selectPlatform(platform, shouldScroll = true) {
   const config = platformConfigs[platform] || platformConfigs.all;
 
   // Sync Desktop buttons
@@ -147,32 +170,60 @@ function selectPlatform(platform) {
   }
   if (urlInput) {
     urlInput.placeholder = config.placeholder;
-    urlInput.focus();
   }
 
   // Close mobile drawer smoothly if open
   closeMobileMenu();
 
-  // Smooth scroll down to downloader card
-  const downloaderCard = document.querySelector(".downloader-card");
-  if (downloaderCard) {
-    downloaderCard.scrollIntoView({ behavior: "smooth", block: "center" });
+  // Smooth scroll down to downloader card if explicitly clicked
+  if (shouldScroll) {
+    const downloaderCard = document.querySelector(".downloader-card");
+    if (downloaderCard) {
+      downloaderCard.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+    if (urlInput) urlInput.focus();
   }
 }
 
-// Desktop platform buttons click
+// Initialize active platform on page load based on current URL
+const currentPlatform = detectCurrentPlatform();
+selectPlatform(currentPlatform, false);
+
+// Desktop platform buttons click (navigate to page if different)
 document.querySelectorAll(".nav-platform-btn").forEach(btn => {
-  btn.addEventListener("click", () => {
+  btn.addEventListener("click", (e) => {
     const platform = btn.getAttribute("data-platform");
-    selectPlatform(platform);
+    const targetPage = platformPages[platform];
+    const currentPage = window.location.pathname.split("/").pop() || "index.html";
+
+    // If clicking a different platform and target page is different, navigate
+    if (targetPage && targetPage !== currentPage && !(currentPage === "" && targetPage === "index.html")) {
+      // Allow link default navigation if it is an <a> tag
+      if (btn.tagName.toLowerCase() !== "a") {
+        window.location.href = targetPage;
+      }
+    } else {
+      e.preventDefault();
+      selectPlatform(platform, true);
+    }
   });
 });
 
 // Mobile platform items click
 document.querySelectorAll(".mobile-feature-item").forEach(item => {
-  item.addEventListener("click", () => {
+  item.addEventListener("click", (e) => {
     const platform = item.getAttribute("data-platform");
-    selectPlatform(platform);
+    const targetPage = platformPages[platform];
+    const currentPage = window.location.pathname.split("/").pop() || "index.html";
+
+    if (targetPage && targetPage !== currentPage && !(currentPage === "" && targetPage === "index.html")) {
+      if (item.tagName.toLowerCase() !== "a") {
+        window.location.href = targetPage;
+      }
+    } else {
+      e.preventDefault();
+      selectPlatform(platform, true);
+    }
   });
 });
 

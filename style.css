@@ -188,6 +188,7 @@ body {
   border-radius: var(--radius-full);
   cursor: pointer;
   white-space: nowrap;
+  text-decoration: none;
   transition: all var(--transition-fast);
 }
 
@@ -1281,6 +1282,7 @@ body.drawer-open {
   color: #fff;
   cursor: pointer;
   text-align: left;
+  text-decoration: none;
   font-family: inherit;
   transition: all var(--transition-fast);
 }
@@ -1466,3 +1468,623 @@ body.drawer-open {
     font-size: 0.95rem;
   }
 }
+
+/* ==========================================================
+   DEDICATED PLATFORM THEMES & BRAND ACCENTS
+   ========================================================== */
+
+/* 1. TIKTOK THEME (Cyan + Magenta Neon on Dark) */
+body.theme-tiktok {
+  --primary-blue: #00f2fe;
+  --primary-purple: #fe2c55;
+  --border-glow: rgba(0, 242, 254, 0.4);
+  --gradient-primary: linear-gradient(135deg, #00f2fe, #fe2c55);
+  --gradient-btn: linear-gradient(135deg, #00d2ff, #fe2c55);
+  --gradient-glow: linear-gradient(135deg, rgba(0, 242, 254, 0.5), rgba(254, 44, 85, 0.5));
+}
+body.theme-tiktok .glow-1 {
+  background: radial-gradient(circle, #00f2fe, #0077b6);
+  opacity: 0.35;
+}
+body.theme-tiktok .glow-2 {
+  background: radial-gradient(circle, #fe2c55, #9d0208);
+  opacity: 0.35;
+}
+body.theme-tiktok .glow-3 {
+  background: radial-gradient(circle, #25f4ee, #001219);
+  opacity: 0.25;
+}
+body.theme-tiktok .gradient-text {
+  background: linear-gradient(135deg, #00f2fe 10%, #fe2c55 90%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* 2. YOUTUBE THEME (Vibrant Crimson Red) */
+body.theme-youtube {
+  --primary-blue: #ff0000;
+  --primary-purple: #cc0000;
+  --border-glow: rgba(255, 0, 0, 0.45);
+  --gradient-primary: linear-gradient(135deg, #ff0000, #b91c1c);
+  --gradient-btn: linear-gradient(135deg, #ff0000, #dc2626);
+  --gradient-glow: linear-gradient(135deg, rgba(255, 0, 0, 0.55), rgba(185, 28, 28, 0.4));
+}
+body.theme-youtube .glow-1 {
+  background: radial-gradient(circle, #ff0000, #7f1d1d);
+  opacity: 0.35;
+}
+body.theme-youtube .glow-2 {
+  background: radial-gradient(circle, #ef4444, #991b1b);
+  opacity: 0.3;
+}
+body.theme-youtube .glow-3 {
+  background: radial-gradient(circle, #dc2626, #450a0a);
+  opacity: 0.25;
+}
+body.theme-youtube .gradient-text {
+  background: linear-gradient(135deg, #ff4b4b 0%, #ff0000 60%, #dc2626 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* 3. INSTAGRAM THEME (Sunset Pink, Orange & Purple) */
+body.theme-instagram {
+  --primary-blue: #f09433;
+  --primary-purple: #bc1888;
+  --border-glow: rgba(225, 48, 108, 0.45);
+  --gradient-primary: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+  --gradient-btn: linear-gradient(135deg, #e1306c, #833ab4);
+  --gradient-glow: linear-gradient(135deg, rgba(225, 48, 108, 0.5), rgba(131, 58, 180, 0.5));
+}
+body.theme-instagram .glow-1 {
+  background: radial-gradient(circle, #e1306c, #833ab4);
+  opacity: 0.35;
+}
+body.theme-instagram .glow-2 {
+  background: radial-gradient(circle, #f09433, #dc2743);
+  opacity: 0.35;
+}
+body.theme-instagram .glow-3 {
+  background: radial-gradient(circle, #5851db, #405de6);
+  opacity: 0.25;
+}
+body.theme-instagram .gradient-text {
+  background: linear-gradient(135deg, #f09433 0%, #e1306c 50%, #833ab4 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* 4. FACEBOOK THEME (Royal Blue & Azure) */
+body.theme-facebook {
+  --primary-blue: #1877f2;
+  --primary-purple: #0d6efd;
+  --border-glow: rgba(24, 119, 242, 0.45);
+  --gradient-primary: linear-gradient(135deg, #1877f2, #0d6efd);
+  --gradient-btn: linear-gradient(135deg, #1877f2, #0056b3);
+  --gradient-glow: linear-gradient(135deg, rgba(24, 119, 242, 0.55), rgba(13, 110, 253, 0.4));
+}
+body.theme-facebook .glow-1 {
+  background: radial-gradient(circle, #1877f2, #034078);
+  opacity: 0.35;
+}
+body.theme-facebook .glow-2 {
+  background: radial-gradient(circle, #38bdf8, #0284c7);
+  opacity: 0.3;
+}
+body.theme-facebook .glow-3 {
+  background: radial-gradient(circle, #0052cc, #071e3d);
+  opacity: 0.25;
+}
+body.theme-facebook .gradient-text {
+  background: linear-gradient(135deg, #60a5fa 0%, #1877f2 60%, #0d6efd 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* 5. SNAPCHAT THEME (Vibrant Yellow & Gold) */
+body.theme-snapchat {
+  --primary-blue: #fffc00;
+  --primary-purple: #f59e0b;
+  --border-glow: rgba(255, 252, 0, 0.4);
+  --gradient-primary: linear-gradient(135deg, #fffc00, #f59e0b);
+  --gradient-btn: linear-gradient(135deg, #fffc00, #f59e0b);
+  --gradient-glow: linear-gradient(135deg, rgba(255, 252, 0, 0.45), rgba(245, 158, 11, 0.4));
+}
+body.theme-snapchat .glow-1 {
+  background: radial-gradient(circle, #fffc00, #b45309);
+  opacity: 0.3;
+}
+body.theme-snapchat .glow-2 {
+  background: radial-gradient(circle, #fbbf24, #d97706);
+  opacity: 0.28;
+}
+body.theme-snapchat .glow-3 {
+  background: radial-gradient(circle, #fde047, #78350f);
+  opacity: 0.2;
+}
+body.theme-snapchat .gradient-text {
+  background: linear-gradient(135deg, #fff 0%, #fffc00 65%, #f59e0b 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+body.theme-snapchat .download-btn {
+  color: #0b0f19;
+  font-weight: 800;
+}
+body.theme-snapchat .download-btn .btn-icon svg {
+  stroke: #0b0f19;
+}
+
+/* 6. TWITTER / X THEME (Monochrome Dark & Silver) */
+body.theme-twitter {
+  --primary-blue: #f8fafc;
+  --primary-purple: #94a3b8;
+  --border-glow: rgba(255, 255, 255, 0.35);
+  --gradient-primary: linear-gradient(135deg, #ffffff, #64748b);
+  --gradient-btn: linear-gradient(135deg, #334155, #0f172a);
+  --gradient-glow: linear-gradient(135deg, rgba(255, 255, 255, 0.3), rgba(148, 163, 184, 0.3));
+}
+body.theme-twitter .glow-1 {
+  background: radial-gradient(circle, #94a3b8, #334155);
+  opacity: 0.28;
+}
+body.theme-twitter .glow-2 {
+  background: radial-gradient(circle, #cbd5e1, #1e293b);
+  opacity: 0.22;
+}
+body.theme-twitter .glow-3 {
+  background: radial-gradient(circle, #64748b, #020617);
+  opacity: 0.2;
+}
+body.theme-twitter .gradient-text {
+  background: linear-gradient(135deg, #ffffff 10%, #cbd5e1 60%, #94a3b8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+body.theme-twitter .download-btn {
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6), 0 0 15px rgba(255, 255, 255, 0.1);
+}
+
+/* ==========================================================
+   OPEN PLATFORM CALLOUT BUTTON
+   ========================================================== */
+.platform-open-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.btn-platform-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 24px;
+  border-radius: var(--radius-full);
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-decoration: none;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  transition: all var(--transition-normal);
+  cursor: pointer;
+}
+
+.btn-platform-open:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.btn-platform-open svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+/* Specific Open Platform Button Styles */
+.btn-platform-open.tiktok {
+  background: linear-gradient(135deg, rgba(0, 242, 254, 0.2), rgba(254, 44, 85, 0.2));
+  border-color: rgba(0, 242, 254, 0.4);
+  box-shadow: 0 4px 20px rgba(0, 242, 254, 0.25);
+}
+.btn-platform-open.tiktok:hover {
+  background: linear-gradient(135deg, rgba(0, 242, 254, 0.35), rgba(254, 44, 85, 0.35));
+  box-shadow: 0 6px 25px rgba(254, 44, 85, 0.4);
+}
+
+.btn-platform-open.youtube {
+  background: linear-gradient(135deg, rgba(255, 0, 0, 0.25), rgba(185, 28, 28, 0.25));
+  border-color: rgba(255, 0, 0, 0.45);
+  box-shadow: 0 4px 20px rgba(255, 0, 0, 0.3);
+}
+.btn-platform-open.youtube:hover {
+  background: linear-gradient(135deg, rgba(255, 0, 0, 0.4), rgba(220, 38, 38, 0.4));
+  box-shadow: 0 6px 25px rgba(255, 0, 0, 0.5);
+}
+
+.btn-platform-open.instagram {
+  background: linear-gradient(45deg, rgba(240, 148, 51, 0.2), rgba(225, 48, 108, 0.2), rgba(131, 58, 180, 0.2));
+  border-color: rgba(225, 48, 108, 0.4);
+  box-shadow: 0 4px 20px rgba(225, 48, 108, 0.3);
+}
+.btn-platform-open.instagram:hover {
+  background: linear-gradient(45deg, rgba(240, 148, 51, 0.35), rgba(225, 48, 108, 0.35), rgba(131, 58, 180, 0.35));
+  box-shadow: 0 6px 25px rgba(225, 48, 108, 0.5);
+}
+
+.btn-platform-open.facebook {
+  background: linear-gradient(135deg, rgba(24, 119, 242, 0.25), rgba(13, 110, 253, 0.25));
+  border-color: rgba(24, 119, 242, 0.45);
+  box-shadow: 0 4px 20px rgba(24, 119, 242, 0.3);
+}
+.btn-platform-open.facebook:hover {
+  background: linear-gradient(135deg, rgba(24, 119, 242, 0.4), rgba(13, 110, 253, 0.4));
+  box-shadow: 0 6px 25px rgba(24, 119, 242, 0.5);
+}
+
+.btn-platform-open.snapchat {
+  background: linear-gradient(135deg, rgba(255, 252, 0, 0.2), rgba(245, 158, 11, 0.2));
+  border-color: rgba(255, 252, 0, 0.4);
+  box-shadow: 0 4px 20px rgba(255, 252, 0, 0.25);
+  color: #fff;
+}
+.btn-platform-open.snapchat:hover {
+  background: linear-gradient(135deg, rgba(255, 252, 0, 0.35), rgba(245, 158, 11, 0.35));
+  box-shadow: 0 6px 25px rgba(255, 252, 0, 0.45);
+}
+
+.btn-platform-open.twitter {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(148, 163, 184, 0.12));
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 4px 20px rgba(255, 255, 255, 0.15);
+}
+.btn-platform-open.twitter:hover {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(148, 163, 184, 0.2));
+  box-shadow: 0 6px 25px rgba(255, 255, 255, 0.25);
+}
+
+.platform-open-hint {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ==========================================================
+   HUMAN WRITTEN SEO BLOG & COMPREHENSIVE GUIDE ARTICLE
+   ========================================================== */
+.seo-article-section {
+  max-width: 980px;
+  margin: 60px auto 40px;
+  padding: 0 20px;
+}
+
+.article-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 42px 36px;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  position: relative;
+  overflow: hidden;
+}
+
+.article-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--gradient-primary);
+}
+
+.article-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.article-pill {
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 5px 12px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+}
+
+.article-pill.accent {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.35);
+  color: #60a5fa;
+}
+
+body.theme-tiktok .article-pill.accent {
+  background: rgba(0, 242, 254, 0.15);
+  border-color: rgba(0, 242, 254, 0.35);
+  color: #00f2fe;
+}
+body.theme-youtube .article-pill.accent {
+  background: rgba(255, 0, 0, 0.15);
+  border-color: rgba(255, 0, 0, 0.35);
+  color: #ff4d4d;
+}
+body.theme-instagram .article-pill.accent {
+  background: rgba(225, 48, 108, 0.15);
+  border-color: rgba(225, 48, 108, 0.35);
+  color: #f472b6;
+}
+body.theme-facebook .article-pill.accent {
+  background: rgba(24, 119, 242, 0.15);
+  border-color: rgba(24, 119, 242, 0.35);
+  color: #60a5fa;
+}
+body.theme-snapchat .article-pill.accent {
+  background: rgba(255, 252, 0, 0.15);
+  border-color: rgba(255, 252, 0, 0.35);
+  color: #fef08a;
+}
+body.theme-twitter .article-pill.accent {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+}
+
+.article-main-title {
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1.25;
+  letter-spacing: -0.5px;
+  color: #fff;
+  margin-bottom: 16px;
+}
+
+.article-lead {
+  font-size: 1.05rem;
+  line-height: 1.7;
+  color: var(--text-secondary);
+  margin-bottom: 30px;
+}
+
+.article-lead strong {
+  color: #fff;
+}
+
+/* Steps Flow */
+.guide-flow-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin: 30px 0 40px;
+}
+
+.guide-flow-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 22px 18px;
+  transition: all var(--transition-normal);
+  position: relative;
+}
+
+.guide-flow-card:hover {
+  background: rgba(255, 255, 255, 0.06);
+  transform: translateY(-3px);
+  border-color: var(--border-glow);
+}
+
+.flow-step-number {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--gradient-primary);
+  color: #fff;
+  font-weight: 800;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+
+.guide-flow-card h4 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 8px;
+}
+
+.guide-flow-card p {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+
+/* Article Prose Content */
+.article-body h2 {
+  font-size: 1.45rem;
+  font-weight: 800;
+  color: #fff;
+  margin: 36px 0 14px;
+  letter-spacing: -0.3px;
+}
+
+.article-body h3 {
+  font-size: 1.18rem;
+  font-weight: 700;
+  color: #f1f5f9;
+  margin: 24px 0 10px;
+}
+
+.article-body p {
+  font-size: 0.96rem;
+  line-height: 1.75;
+  color: var(--text-secondary);
+  margin-bottom: 18px;
+}
+
+.article-body ul {
+  list-style: none;
+  margin-bottom: 22px;
+}
+
+.article-body ul li {
+  font-size: 0.92rem;
+  line-height: 1.65;
+  color: var(--text-secondary);
+  padding: 6px 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.article-body ul li::before {
+  content: '✓';
+  color: var(--accent-green);
+  font-weight: 800;
+}
+
+/* Highlight Box / Tip Box */
+.article-tip-box {
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  border-left: 4px solid var(--primary-blue);
+  border-radius: var(--radius-sm);
+  padding: 18px 20px;
+  margin: 28px 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.tip-box-icon {
+  font-size: 1.4rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.tip-box-text {
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.tip-box-text strong {
+  color: #fff;
+}
+
+/* Feature Matrix Table / Comparison */
+.matrix-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 18px;
+  margin: 28px 0 36px;
+}
+
+.matrix-item {
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 20px;
+}
+
+.matrix-item h4 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.matrix-item p {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.55;
+  margin-bottom: 0;
+}
+
+/* Call to Action Inside Article */
+.article-cta-box {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02));
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 28px;
+  text-align: center;
+  margin: 36px 0;
+}
+
+.article-cta-box h3 {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #fff;
+  margin-bottom: 10px;
+}
+
+.article-cta-box p {
+  font-size: 0.92rem;
+  color: var(--text-secondary);
+  max-width: 600px;
+  margin: 0 auto 20px;
+}
+
+.article-cta-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.btn-jump-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border-radius: var(--radius-full);
+  background: var(--gradient-btn);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.92rem;
+  text-decoration: none;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+  transition: all var(--transition-fast);
+}
+
+.btn-jump-tool:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 22px var(--border-glow);
+}
+
+@media (max-width: 768px) {
+  .article-card {
+    padding: 26px 18px;
+  }
+  .article-main-title {
+    font-size: 1.55rem;
+  }
+  .article-lead {
+    font-size: 0.95rem;
+  }
+  .guide-flow-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
