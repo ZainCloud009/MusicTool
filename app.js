@@ -16,6 +16,7 @@ const clearBtn = document.getElementById("clearBtn");
 const statusEl = document.getElementById("status");
 const progressWrap = document.getElementById("progressWrap");
 const progressEl = document.getElementById("progress");
+const progressPercentEl = document.getElementById("progressPercent");
 const resultEl = document.getElementById("result");
 const activePlatformLabel = document.getElementById("activePlatformLabel");
 
@@ -240,6 +241,7 @@ clearBtn.addEventListener("click", () => {
   urlInput.value = "";
   clearBtn.classList.add("hidden");
   statusEl.textContent = "Ready to download";
+  if (progressPercentEl) progressPercentEl.textContent = "0%";
   resultEl.classList.add("hidden");
   urlInput.focus();
 });
@@ -269,6 +271,7 @@ urlInput.addEventListener("keydown", (e) => {
 
 function startProgressAnimation() {
   progressEl.style.width = "15%";
+  if (progressPercentEl) progressPercentEl.textContent = "15%";
   statusEl.textContent = "Connecting to video source...";
 
   let currentPercent = 15;
@@ -282,7 +285,9 @@ function startProgressAnimation() {
     if (currentPercent < 88) {
       currentPercent += Math.random() * 7 + 2;
       if (currentPercent > 88) currentPercent = 88;
-      progressEl.style.width = `${Math.round(currentPercent)}%`;
+      const rounded = Math.round(currentPercent);
+      progressEl.style.width = `${rounded}%`;
+      if (progressPercentEl) progressPercentEl.textContent = `${rounded}%`;
 
       for (const stage of stages) {
         if (currentPercent >= stage.at) {
@@ -299,6 +304,7 @@ function stopProgressAnimation(isSuccess = true) {
     progressInterval = null;
   }
   progressEl.style.width = isSuccess ? "100%" : "0%";
+  if (progressPercentEl) progressPercentEl.textContent = isSuccess ? "100%" : "0%";
 }
 
 function triggerDownload(fileUrl, filename) {
