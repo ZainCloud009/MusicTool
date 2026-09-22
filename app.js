@@ -470,3 +470,56 @@ function escapeHtml(value) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
+
+// ==========================================================
+// BLOG READING MODE TOGGLE (LIGHT / DARK) - ONLY ON BLOG PAGES
+// ==========================================================
+(function initBlogReadingTheme() {
+  const toggleBtns = [
+    document.getElementById('blogThemeToggleBtn'),
+    document.getElementById('blogInlineThemeToggleBtn')
+  ].filter(Boolean);
+
+  if (toggleBtns.length === 0) return;
+
+  function updateToggleButtons(isLight) {
+    const icon = isLight ? '🌙' : '☀️';
+    const text = isLight ? 'Dark Mode' : 'Light Mode';
+    const aria = isLight ? 'Switch to Dark Reading Mode' : 'Switch to Light Reading Mode';
+
+    toggleBtns.forEach(btn => {
+      btn.innerHTML = `<span class="theme-icon">${icon}</span> <span class="theme-label">${text}</span>`;
+      btn.setAttribute('aria-label', aria);
+      btn.setAttribute('title', aria);
+    });
+  }
+
+  function applyTheme(isLight) {
+    if (isLight) {
+      document.body.classList.add('light-mode');
+      try { localStorage.setItem('blog_reading_theme', 'light'); } catch(e) {}
+    } else {
+      document.body.classList.remove('light-mode');
+      try { localStorage.setItem('blog_reading_theme', 'dark'); } catch(e) {}
+    }
+    updateToggleButtons(isLight);
+  }
+
+  // Restore saved theme on page load
+  let savedTheme = 'dark';
+  try {
+    savedTheme = localStorage.getItem('blog_reading_theme');
+  } catch(e) {}
+
+  const isInitiallyLight = savedTheme === 'light';
+  applyTheme(isInitiallyLight);
+
+  toggleBtns.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const currentIsLight = document.body.classList.contains('light-mode');
+      applyTheme(!currentIsLight);
+    });
+  });
+})();
+
