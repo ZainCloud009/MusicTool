@@ -230,46 +230,52 @@ document.querySelectorAll(".mobile-feature-item").forEach(item => {
   });
 });
 
-// Show/hide Clear button based on input
-urlInput.addEventListener("input", () => {
-  if (urlInput.value.trim().length > 0) {
-    clearBtn.classList.remove("hidden");
-  } else {
-    clearBtn.classList.add("hidden");
-  }
-});
+// Show/hide Clear button based on input (only if downloader elements exist on page)
+if (urlInput && clearBtn) {
+  urlInput.addEventListener("input", () => {
+    if (urlInput.value.trim().length > 0) {
+      clearBtn.classList.remove("hidden");
+    } else {
+      clearBtn.classList.add("hidden");
+    }
+  });
 
-clearBtn.addEventListener("click", () => {
-  urlInput.value = "";
-  clearBtn.classList.add("hidden");
-  statusEl.textContent = "Ready to download";
-  if (progressPercentEl) progressPercentEl.textContent = "0%";
-  resultEl.classList.add("hidden");
-  urlInput.focus();
-});
+  clearBtn.addEventListener("click", () => {
+    urlInput.value = "";
+    clearBtn.classList.add("hidden");
+    if (statusEl) statusEl.textContent = "Ready to download";
+    if (progressPercentEl) progressPercentEl.textContent = "0%";
+    if (resultEl) resultEl.classList.add("hidden");
+    urlInput.focus();
+  });
+}
 
 // Paste button
-pasteBtn.addEventListener("click", async () => {
-  try {
-    const text = await navigator.clipboard.readText();
-    if (text) {
-      urlInput.value = text.trim();
-      clearBtn.classList.remove("hidden");
-      statusEl.textContent = "Link pasted ✓ Ready to download";
-      urlInput.focus();
+if (pasteBtn && urlInput) {
+  pasteBtn.addEventListener("click", async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text) {
+        urlInput.value = text.trim();
+        if (clearBtn) clearBtn.classList.remove("hidden");
+        if (statusEl) statusEl.textContent = "Link pasted ✓ Ready to download";
+        urlInput.focus();
+      }
+    } catch {
+      if (statusEl) statusEl.textContent = "Clipboard permission denied. Please paste manually (Ctrl+V).";
     }
-  } catch {
-    statusEl.textContent = "Clipboard permission denied. Please paste manually (Ctrl+V).";
-  }
-});
+  });
+}
 
 // Allow pressing Enter in URL input to trigger download
-urlInput.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") {
-    e.preventDefault();
-    downloadBtn.click();
-  }
-});
+if (urlInput && downloadBtn) {
+  urlInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      downloadBtn.click();
+    }
+  });
+}
 
 function startProgressAnimation() {
   progressEl.style.width = "15%";
@@ -325,142 +331,140 @@ function formatDuration(seconds) {
   return `${mins}:${secs.toString().padStart(2, "0")}`;
 }
 
-downloadBtn.addEventListener("click", async () => {
-  const url = urlInput.value.trim();
+if (downloadBtn && urlInput) {
+  downloadBtn.addEventListener("click", async () => {
+    const url = urlInput.value.trim();
 
-  if (!url) {
-    statusEl.textContent = "Please paste a video URL first.";
-    urlInput.focus();
-    return;
-  }
-
-  try {
-    new URL(url);
-  } catch {
-    statusEl.textContent = "Please enter a valid URL (e.g. https://...)";
-    return;
-  }
-
-  downloadBtn.disabled = true;
-  resultEl.classList.add("hidden");
-  resultEl.innerHTML = "";
-  progressWrap.classList.remove("hidden");
-  startProgressAnimation();
-
-  try {
-    const response = await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url })
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.detail || `Server returned error (${response.status})`);
+    if (!url) {
+      statusEl.textContent = "Please paste a video URL first.";
+      urlInput.focus();
+      return;
     }
 
-    const data = await response.json();
-
-    if (!data.download_url) {
-      throw new Error("Server processed video but returned no download link.");
+    try {
+      new URL(url);
+    } catch {
+      statusEl.textContent = "Please enter a valid URL (e.g. https://...)";
+      return;
     }
 
-    stopProgressAnimation(true);
-    statusEl.textContent = "Video ready! Downloading ✓";
+    downloadBtn.disabled = true;
+    resultEl.classList.add("hidden");
+    resultEl.innerHTML = "";
+    progressWrap.classList.remove("hidden");
+    startProgressAnimation();
 
-    const downloadUrl = data.download_url.startsWith("http")
-      ? data.download_url
-      : `${API_BASE}${data.download_url}`;
+    try {
+      const response = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url })
+      });
 
-    const previewUrl = data.preview_url
-      ? (data.preview_url.startsWith("http") ? data.preview_url : `${API_BASE}${data.preview_url}`)
-      : downloadUrl;
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || `Server returned error (${response.status})`);
+      }
 
-    const musicUrl = data.music_url
-      ? (data.music_url.startsWith("http") ? data.music_url : `${API_BASE}${data.music_url}`)
-      : null;
+      const data = await response.json();
 
-    const videoFilename = data.filename || "video.mp4";
-    const audioFilename = videoFilename.replace(/\.[a-z0-9]+$/i, "") + ".mp3";
+      if (!data.download_url) {
+        throw new Error("Server processed video but returned no download link.");
+      }
 
-    // Build rich video preview card with playable video player & poster thumbnail
-    let cardContent = `
-      <div class="preview-card">
-        <!-- Playable in-tool video player with proper thumbnail cover -->
-        <div class="preview-media-container">
-          <video 
-            id="previewVideoPlayer" 
-            class="preview-video" 
-            controls 
-            playsinline 
-            preload="metadata" 
-            poster="${escapeHtml(data.thumbnail || '')}">
-            <source src="${escapeHtml(previewUrl)}" type="video/mp4">
-            ${data.thumbnail ? `<img src="${escapeHtml(data.thumbnail)}" alt="Thumbnail" class="preview-thumb">` : ""}
-            Your browser does not support inline video playback.
-          </video>
-        </div>
+      stopProgressAnimation(true);
+      statusEl.textContent = "✓ Ready! Click below to download";
 
-        <div class="preview-details">
-          <div class="preview-title">${escapeHtml(data.title || "Social Video")}</div>
-          <div class="preview-meta">
-            ${data.uploader ? `<span class="meta-tag">👤 ${escapeHtml(data.uploader)}</span>` : ""}
-            ${data.duration ? `<span class="meta-tag">⏱ ${formatDuration(data.duration)}</span>` : ""}
-            <span class="meta-tag meta-format">🎬 MP4 HD</span>
+      const downloadUrl = data.download_url.startsWith("http")
+        ? data.download_url
+        : `${API_BASE}${data.download_url}`;
+
+      const musicUrl = data.music_url
+        ? (data.music_url.startsWith("http") ? data.music_url : `${API_BASE}${data.music_url}`)
+        : null;
+
+      const videoFilename = data.filename || "video.mp4";
+      const audioFilename = data.title
+        ? `${data.title.replace(/[/\\?%*:|"<>]/g, "-")}.mp3`
+        : "audio.mp3";
+
+      // Build rich video preview card with playable video & direct mobile-friendly download buttons
+      const cardContent = `
+        <div class="video-preview-card">
+          <div class="video-player-wrapper">
+            <video
+              id="previewVideoPlayer"
+              controls
+              playsinline
+              preload="metadata"
+              poster="${data.thumbnail ? escapeHtml(data.thumbnail) : ""}"
+              src="${escapeHtml(downloadUrl)}"
+            >
+              Your browser does not support inline video playback.
+            </video>
           </div>
 
-          <!-- Download Action Buttons for Mobile Gallery & Desktop -->
-          <div class="download-actions-grid">
-            <a href="${escapeHtml(downloadUrl)}" download="${escapeHtml(videoFilename)}" class="download-action-btn btn-primary" id="saveVideoBtn">
-              <span class="btn-icon">⬇</span>
-              <span class="btn-copy">
-                <strong>Save Video to Gallery / PC</strong>
-                <small>Full HD MP4 Video</small>
-              </span>
-            </a>
+          <div class="preview-details">
+            <div class="preview-title">${escapeHtml(data.title || "Social Video")}</div>
+            <div class="preview-meta">
+              ${data.uploader ? `<span class="meta-tag">👤 ${escapeHtml(data.uploader)}</span>` : ""}
+              ${data.duration ? `<span class="meta-tag">⏱ ${formatDuration(data.duration)}</span>` : ""}
+              <span class="meta-tag meta-format">🎬 MP4 HD</span>
+            </div>
 
-            ${musicUrl ? `
-            <a href="${escapeHtml(musicUrl)}" download="${escapeHtml(audioFilename)}" class="download-action-btn btn-music" id="saveAudioBtn">
-              <span class="btn-icon">🎵</span>
-              <span class="btn-copy">
-                <strong>Download Audio / Song</strong>
-                <small>High Quality MP3 Sound</small>
-              </span>
-            </a>
-            ` : ""}
-          </div>
+            <!-- Download Action Buttons for Mobile Gallery & Desktop -->
+            <div class="download-actions-grid">
+              <a href="${escapeHtml(downloadUrl)}" download="${escapeHtml(videoFilename)}" class="download-action-btn btn-primary" id="saveVideoBtn">
+                <span class="btn-icon">⬇</span>
+                <span class="btn-copy">
+                  <strong>Save Video to Gallery / PC</strong>
+                  <small>Full HD MP4 Video</small>
+                </span>
+              </a>
 
-          <div class="download-tip-box">
-            <span>💡</span>
-            <span>Video aapke mobile ki <strong>Gallery / Photos</strong> ya PC ke <strong>Downloads</strong> folder me proper save hogi.</span>
+              ${musicUrl ? `
+              <a href="${escapeHtml(musicUrl)}" download="${escapeHtml(audioFilename)}" class="download-action-btn btn-music" id="saveAudioBtn">
+                <span class="btn-icon">🎵</span>
+                <span class="btn-copy">
+                  <strong>Download Audio / Song</strong>
+                  <small>High Quality MP3 Sound</small>
+                </span>
+              </a>
+              ` : ""}
+            </div>
+
+            <div class="download-tip-box">
+              <span>💡</span>
+              <span>Video aapke mobile ki <strong>Gallery / Photos</strong> ya PC ke <strong>Downloads</strong> folder me proper save hogi.</span>
+            </div>
           </div>
         </div>
-      </div>
-    `;
+      `;
 
-    resultEl.innerHTML = cardContent;
-    resultEl.className = "result success";
-    resultEl.classList.remove("hidden");
+      resultEl.innerHTML = cardContent;
+      resultEl.className = "result success";
+      resultEl.classList.remove("hidden");
 
-    // Automatically trigger browser download
-    triggerDownload(downloadUrl, videoFilename);
+      // Automatically trigger browser download
+      triggerDownload(downloadUrl, videoFilename);
 
-  } catch (err) {
-    stopProgressAnimation(false);
-    statusEl.textContent = "Download failed ✕";
+    } catch (err) {
+      stopProgressAnimation(false);
+      statusEl.textContent = "Download failed ✕";
 
-    let errorMsg = err.message || "An unexpected error occurred.";
-    if (errorMsg.includes("Failed to fetch") || errorMsg.includes("NetworkError")) {
-      errorMsg = `Cannot connect to server at <strong>${API_BASE}</strong>.<br><br>Make sure the backend is running: <code>uvicorn main:app --reload</code> or double-click <code>start.bat</code>.`;
+      let errorMsg = err.message || "An unexpected error occurred.";
+      if (errorMsg.includes("Failed to fetch") || errorMsg.includes("NetworkError")) {
+        errorMsg = `Cannot connect to server at <strong>${API_BASE}</strong>.<br><br>Make sure the backend is running: <code>uvicorn main:app --reload</code> or double-click <code>start.bat</code>.`;
+      }
+
+      resultEl.innerHTML = `<div class="error-msg">${errorMsg}</div>`;
+      resultEl.className = "result error";
+      resultEl.classList.remove("hidden");
+    } finally {
+      downloadBtn.disabled = false;
     }
-
-    resultEl.innerHTML = `<div class="error-msg">${errorMsg}</div>`;
-    resultEl.className = "result error";
-    resultEl.classList.remove("hidden");
-  } finally {
-    downloadBtn.disabled = false;
-  }
-});
+  });
+}
 
 function escapeHtml(value) {
   return String(value)

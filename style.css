@@ -2880,27 +2880,29 @@ body.theme-twitter .article-pill.accent {
   position: fixed;
   top: 86px;
   right: 24px;
-  z-index: 100;
+  z-index: 9999;
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: rgba(15, 23, 42, 0.88);
+  background: rgba(15, 23, 42, 0.92);
   color: #f8fafc;
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  padding: 8px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  padding: 9px 18px;
   border-radius: var(--radius-full);
-  font-size: 0.84rem;
+  font-size: 0.85rem;
   font-weight: 700;
   cursor: pointer;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  pointer-events: auto;
+  user-select: none;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
   transition: all var(--transition-fast);
 }
 
 .blog-theme-toggle:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
   border-color: #3b82f6;
   color: #60a5fa;
 }
