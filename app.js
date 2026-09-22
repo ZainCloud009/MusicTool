@@ -120,6 +120,7 @@ mobileDrawerLinks.forEach(link => {
 // Map platforms to dedicated landing pages
 const platformPages = {
   all: "index.html",
+  blogs: "blogs.html",
   music: "index.html",
   tiktok: "tiktok.html",
   youtube: "youtube.html",
@@ -131,6 +132,7 @@ const platformPages = {
 
 function detectCurrentPlatform() {
   const path = window.location.pathname.toLowerCase();
+  if (path.includes("blog") || path.includes("growth-navigate")) return "blogs";
   if (path.includes("tiktok")) return "tiktok";
   if (path.includes("youtube")) return "youtube";
   if (path.includes("instagram")) return "instagram";
