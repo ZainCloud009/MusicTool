@@ -1,5 +1,6 @@
-﻿fastapi
+fastapi
 uvicorn[standard]
-yt-dlp
+yt-dlp>=2026.8.19
 pydantic
 gradio
+

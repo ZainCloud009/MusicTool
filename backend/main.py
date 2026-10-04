@@ -4,6 +4,9 @@ import re
 import time
 import mimetypes
 import json
+import sys
+import threading
+import subprocess
 import urllib.request
 import urllib.parse
 
@@ -30,6 +33,33 @@ DOWNLOAD_DIR = BACKEND_DIR / "downloads"
 DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 
+def background_upgrade_ytdlp():
+    """Ensure yt-dlp stays on the latest release to seamlessly handle platform/API updates."""
+    try:
+        subprocess.run(
+            [sys.executable, "-m", "pip", "install", "--no-cache-dir", "--upgrade", "yt-dlp"],
+            timeout=90,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except Exception:
+        pass
+
+
+@app.on_event("startup")
+def on_startup():
+    threading.Thread(target=background_upgrade_ytdlp, daemon=True).start()
+
+
+@app.get("/api/health")
+def api_health():
+    return {
+        "status": "online",
+        "ytdlp_version": getattr(yt_dlp.version, "__version__", "unknown"),
+        "time": time.time(),
+    }
+
+
 def cleanup_old_files(max_age_seconds: int = 3600):
     """Automatically remove downloaded files older than 1 hour."""
     now = time.time()
@@ -44,8 +74,23 @@ def cleanup_old_files(max_age_seconds: int = 3600):
         pass
 
 
+def is_youtube_url(url: str) -> bool:
+    low = url.lower()
+    return "youtube.com" in low or "youtu.be" in low
+
+
+def normalize_youtube_url(url: str) -> str:
+    """Normalize YouTube links (shorts, youtu.be, mobile) into standard watch URLs, stripping extraneous query params."""
+    m = re.search(r'(?:youtu\.be/|youtube\.com/(?:watch\?.*v=|embed/|v/|shorts/))([a-zA-Z0-9_-]{11})', url)
+    if m:
+        return f"https://www.youtube.com/watch?v={m.group(1)}"
+    return url
+
+
 def expand_short_url(url: str) -> str:
     """Expand short URLs like vt.tiktok.com, vm.tiktok.com, youtu.be, etc."""
+    if is_youtube_url(url):
+        return normalize_youtube_url(url)
     try:
         req = urllib.request.Request(
             url,
@@ -132,103 +177,173 @@ def download_video(request: DownloadRequest):
     if not url.startswith(("http://", "https://")):
         raise HTTPException(status_code=400, detail="Invalid URL. Please provide a full link starting with http:// or https://")
 
-    # 1. Expand shortened links (e.g. vt.tiktok.com, vm.tiktok.com, youtu.be)
-    expanded_url = expand_short_url(url)
+    # 1. URL detection & expansion
+    is_yt = is_youtube_url(url)
+    if is_yt:
+        expanded_url = normalize_youtube_url(url)
+    else:
+        expanded_url = expand_short_url(url)
+        if is_youtube_url(expanded_url):
+            is_yt = True
+            expanded_url = normalize_youtube_url(expanded_url)
 
     # 2. Ultra-fast TikTok engine with zero-watermark and bypass of age/login blocks
-    if "tiktok.com" in expanded_url.lower() or "tiktok.com" in url.lower():
+    if not is_yt and ("tiktok.com" in expanded_url.lower() or "tiktok.com" in url.lower()):
         tiktok_res = extract_tiktok_fast(expanded_url)
         if not tiktok_res and expanded_url != url:
             tiktok_res = extract_tiktok_fast(url)
         if tiktok_res:
             return tiktok_res
 
-    # 3. Universal engine (YouTube, Instagram, Facebook, Twitter/X, Snapchat, etc.) via optimized yt-dlp
+    # 3. Universal engine with YouTube multi-tiered client fallbacks
     job_id = uuid.uuid4().hex
 
-    options = {
-        "outtmpl": str(DOWNLOAD_DIR / f"{job_id}.%(ext)s"),
-        # Prefer ready MP4 or pre-merged stream first for lightning-fast download without CPU heavy muxing
-        "format": "best[ext=mp4]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best",
-        "merge_output_format": "mp4",
-        "noplaylist": True,
-        "quiet": True,
-        "no_warnings": True,
-        "socket_timeout": 20,
-        "concurrent_fragment_downloads": 4,
-        "buffersize": 1024 * 64,
-        "extractor_args": {
-            "youtube": {
-                "player_client": ["android", "web"],
-                "skip": ["hls"]
-            },
-            "tiktok": {
-                "app_version": "34.1.2"
-            }
-        },
-        "http_headers": {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Language": "en-US,en;q=0.9",
-        },
-        "extractor_retries": 2,
-        "file_access_retries": 2,
-        "fragment_retries": 2,
-    }
-
-    try:
-        with yt_dlp.YoutubeDL(options) as ydl:
-            info = ydl.extract_info(expanded_url, download=True)
-            if not info:
-                raise RuntimeError("Could not retrieve media information from the provided link.")
-
-        candidates = [
-            f for f in DOWNLOAD_DIR.glob(f"{job_id}.*")
-            if not f.name.endswith((".part", ".ytdl", ".temp", ".aria2"))
+    if is_yt:
+        # Multi-tiered client strategies for YouTube:
+        # Strategy 1: Android client (most reliable on cloud/datacenter IPs, bypasses bot checks)
+        # Strategy 2: TV client (bypasses web PO token)
+        # Strategy 3: Android + iOS combined
+        # Strategy 4: Universal default without player_client restrictions
+        yt_strategies = [
+            {"player_client": ["android"]},
+            {"player_client": ["tv"]},
+            {"player_client": ["android", "ios"]},
+            None,
         ]
 
-        if not candidates:
-            raise RuntimeError("Downloaded media file was not found on the server.")
+        info = None
+        last_error = None
 
-        mp4_candidates = [f for f in candidates if f.suffix.lower() == ".mp4"]
-        target_file = mp4_candidates[0] if mp4_candidates else candidates[0]
+        for strategy in yt_strategies:
+            yt_opts = {
+                "outtmpl": str(DOWNLOAD_DIR / f"{job_id}.%(ext)s"),
+                "format": "best[ext=mp4]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best",
+                "merge_output_format": "mp4",
+                "noplaylist": True,
+                "quiet": True,
+                "no_warnings": True,
+                "socket_timeout": 25,
+                "concurrent_fragment_downloads": 4,
+                "buffersize": 1024 * 64,
+                "http_headers": {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                    "Accept-Language": "en-US,en;q=0.9",
+                },
+                "extractor_retries": 3,
+                "file_access_retries": 2,
+                "fragment_retries": 2,
+            }
+            if strategy:
+                yt_opts["extractor_args"] = {"youtube": strategy}
 
-        raw_title = info.get("title") or "Downloaded Media"
-        clean_name = re.sub(r'[^\w\s-]', '', raw_title).strip()
-        clean_name = re.sub(r'\s+', '_', clean_name)[:60] or "downloaded_video"
+            try:
+                with yt_dlp.YoutubeDL(yt_opts) as ydl:
+                    info = ydl.extract_info(expanded_url, download=True)
+                    if info:
+                        break
+            except Exception as exc:
+                last_error = exc
+                for f in DOWNLOAD_DIR.glob(f"{job_id}.*"):
+                    try:
+                        f.unlink()
+                    except Exception:
+                        pass
+                continue
 
-        thumbnail = info.get("thumbnail")
-        duration = info.get("duration")
-        uploader = info.get("uploader") or info.get("channel") or info.get("extractor_key") or "Social Media"
+        if not info:
+            raw_msg = str(last_error or "Could not extract YouTube video.")
+            clean_msg = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', raw_msg).strip()
+            if "Private video" in clean_msg:
+                clean_msg = "This YouTube video is private or restricted by the creator."
+            elif "Video unavailable" in clean_msg:
+                clean_msg = "This YouTube video is unavailable or has been removed."
+            elif "Sign in to confirm you're not a bot" in clean_msg or "Failed to extract any player response" in clean_msg:
+                clean_msg = "YouTube temporarily limited this request. Please try again in a few moments."
+            elif "Requested format is not available" in clean_msg:
+                clean_msg = "Could not find a downloadable format for this YouTube video."
+            raise HTTPException(status_code=400, detail=clean_msg[:300])
 
-        quoted_name = urllib.parse.quote(clean_name + target_file.suffix)
-        return {
-            "success": True,
-            "filename": f"{clean_name}{target_file.suffix}",
-            "title": raw_title,
-            "thumbnail": thumbnail,
-            "duration": duration,
-            "uploader": uploader,
-            "preview_url": f"/api/file/{target_file.name}?name={quoted_name}&dl=0",
-            "download_url": f"/api/file/{target_file.name}?name={quoted_name}&dl=1"
+    else:
+        # Non-YouTube platforms (Instagram, Facebook, Twitter/X, Snapchat, etc.)
+        options = {
+            "outtmpl": str(DOWNLOAD_DIR / f"{job_id}.%(ext)s"),
+            "format": "best[ext=mp4]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best",
+            "merge_output_format": "mp4",
+            "noplaylist": True,
+            "quiet": True,
+            "no_warnings": True,
+            "socket_timeout": 25,
+            "concurrent_fragment_downloads": 4,
+            "buffersize": 1024 * 64,
+            "extractor_args": {
+                "tiktok": {
+                    "app_version": "34.1.2"
+                }
+            },
+            "http_headers": {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.9",
+            },
+            "extractor_retries": 3,
+            "file_access_retries": 2,
+            "fragment_retries": 2,
         }
 
-    except Exception as exc:
-        raw_msg = str(exc)
-        clean_msg = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', raw_msg).strip()
+        try:
+            with yt_dlp.YoutubeDL(options) as ydl:
+                info = ydl.extract_info(expanded_url, download=True)
+                if not info:
+                    raise RuntimeError("Could not retrieve media information from the provided link.")
+        except Exception as exc:
+            raw_msg = str(exc)
+            clean_msg = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', raw_msg).strip()
 
-        if "Requested format is not available" in clean_msg:
-            clean_msg = "Could not find a downloadable format for this link."
-        elif "Sign in to confirm you're not a bot" in clean_msg:
-            clean_msg = "The platform is temporarily limiting requests. Please try another video or wait 1 minute."
-        elif "Private video" in clean_msg:
-            clean_msg = "This video is private or restricted by the creator."
-        elif "Video unavailable" in clean_msg:
-            clean_msg = "This video is unavailable or has been removed."
-        elif "This post may not be comfortable" in clean_msg or "Log in for access" in clean_msg:
-            clean_msg = "This post is age-restricted or restricted by the platform."
+            if "Requested format is not available" in clean_msg:
+                clean_msg = "Could not find a downloadable format for this link."
+            elif "Sign in to confirm you're not a bot" in clean_msg:
+                clean_msg = "The platform is temporarily limiting requests. Please try another video or wait 1 minute."
+            elif "Private video" in clean_msg:
+                clean_msg = "This video is private or restricted by the creator."
+            elif "Video unavailable" in clean_msg:
+                clean_msg = "This video is unavailable or has been removed."
+            elif "This post may not be comfortable" in clean_msg or "Log in for access" in clean_msg:
+                clean_msg = "This post is age-restricted or restricted by the platform."
 
-        raise HTTPException(status_code=400, detail=clean_msg[:300])
+            raise HTTPException(status_code=400, detail=clean_msg[:300])
+
+    candidates = [
+        f for f in DOWNLOAD_DIR.glob(f"{job_id}.*")
+        if not f.name.endswith((".part", ".ytdl", ".temp", ".aria2"))
+    ]
+
+    if not candidates:
+        raise HTTPException(status_code=400, detail="Downloaded media file was not found on the server.")
+
+    mp4_candidates = [f for f in candidates if f.suffix.lower() == ".mp4"]
+    target_file = mp4_candidates[0] if mp4_candidates else candidates[0]
+
+    raw_title = info.get("title") or "Downloaded Media"
+    clean_name = re.sub(r'[^\w\s-]', '', raw_title).strip()
+    clean_name = re.sub(r'\s+', '_', clean_name)[:60] or "downloaded_video"
+
+    thumbnail = info.get("thumbnail")
+    duration = info.get("duration")
+    uploader = info.get("uploader") or info.get("channel") or info.get("extractor_key") or "Social Media"
+
+    quoted_name = urllib.parse.quote(clean_name + target_file.suffix)
+    return {
+        "success": True,
+        "filename": f"{clean_name}{target_file.suffix}",
+        "title": raw_title,
+        "thumbnail": thumbnail,
+        "duration": duration,
+        "uploader": uploader,
+        "preview_url": f"/api/file/{target_file.name}?name={quoted_name}&dl=0",
+        "download_url": f"/api/file/{target_file.name}?name={quoted_name}&dl=1"
+    }
+
 
 
 @app.get("/api/stream")
