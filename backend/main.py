@@ -35,11 +35,11 @@ COOKIES_FILE = BACKEND_DIR / "cookies.txt"
 
 
 def background_upgrade_ytdlp():
-    """Ensure yt-dlp stays on the latest release to seamlessly handle platform/API updates."""
+    """Ensure yt-dlp and pytubefix stay on the latest release to seamlessly handle platform/API updates."""
     try:
         subprocess.run(
-            [sys.executable, "-m", "pip", "install", "--no-cache-dir", "--upgrade", "yt-dlp"],
-            timeout=90,
+            [sys.executable, "-m", "pip", "install", "--no-cache-dir", "--upgrade", "yt-dlp", "pytubefix"],
+            timeout=120,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
@@ -178,6 +178,98 @@ def extract_tiktok_fast(url: str):
     return None
 
 
+def extract_youtube_pytube(url: str, job_id: str):
+    """
+    Primary YouTube extraction engine using pytubefix.
+    Automatically generates PO (Proof of Origin) tokens via Node.js
+    and bypasses SABR ad gates and bot checks completely on datacenter IPs.
+    """
+    for client in ["WEB", "ANDROID"]:
+        try:
+            from pytubefix import YouTube
+            yt = YouTube(url, client=client)
+            raw_title = yt.title or "YouTube Video"
+            thumbnail = yt.thumbnail_url
+            duration = yt.length
+            uploader = yt.author or "YouTube Creator"
+            target_file = DOWNLOAD_DIR / f"{job_id}.mp4"
+
+            # Prefer 720p or 1080p MP4 adaptive stream merged with AAC audio for crisp HD quality
+            v = (
+                yt.streams.filter(type="video", file_extension="mp4", res="720p").first()
+                or yt.streams.filter(type="video", file_extension="mp4", res="1080p").first()
+                or yt.streams.filter(type="video", file_extension="mp4").order_by("resolution").desc().first()
+                or yt.streams.filter(type="video").order_by("resolution").desc().first()
+            )
+            a = yt.streams.get_audio_only()
+
+            if v and a:
+                v_tmp = DOWNLOAD_DIR / f"{job_id}_v.mp4"
+                a_tmp = DOWNLOAD_DIR / f"{job_id}_a.mp4"
+                v.download(output_path=str(DOWNLOAD_DIR), filename=f"{job_id}_v.mp4")
+                a.download(output_path=str(DOWNLOAD_DIR), filename=f"{job_id}_a.mp4")
+
+                try:
+                    cmd = [
+                        "ffmpeg", "-y",
+                        "-i", str(v_tmp),
+                        "-i", str(a_tmp),
+                        "-c:v", "copy",
+                        "-c:a", "copy",
+                        str(target_file)
+                    ]
+                    subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                except Exception:
+                    cmd = [
+                        "ffmpeg", "-y",
+                        "-i", str(v_tmp),
+                        "-i", str(a_tmp),
+                        "-c:v", "libx264",
+                        "-c:a", "aac",
+                        "-preset", "veryfast",
+                        str(target_file)
+                    ]
+                    subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                finally:
+                    for tmp in (v_tmp, a_tmp):
+                        try:
+                            tmp.unlink()
+                        except Exception:
+                            pass
+            elif v:
+                v_tmp = DOWNLOAD_DIR / f"{job_id}_v.mp4"
+                v.download(output_path=str(DOWNLOAD_DIR), filename=f"{job_id}_v.mp4")
+                v_tmp.rename(target_file)
+            else:
+                prog = yt.streams.filter(progressive=True, file_extension="mp4").order_by("resolution").desc().first()
+                if prog:
+                    prog.download(output_path=str(DOWNLOAD_DIR), filename=f"{job_id}.mp4")
+
+            if target_file.exists() and target_file.stat().st_size > 5000:
+                clean_name = re.sub(r'[^\w\s-]', '', raw_title).strip()
+                clean_name = re.sub(r'\s+', '_', clean_name)[:60] or "youtube_video"
+                quoted_name = urllib.parse.quote(f"{clean_name}.mp4")
+                return {
+                    "success": True,
+                    "filename": f"{clean_name}.mp4",
+                    "title": raw_title,
+                    "thumbnail": thumbnail,
+                    "duration": duration,
+                    "uploader": uploader,
+                    "preview_url": f"/api/file/{target_file.name}?name={quoted_name}&dl=0",
+                    "download_url": f"/api/file/{target_file.name}?name={quoted_name}&dl=1"
+                }
+        except Exception:
+            for f in DOWNLOAD_DIR.glob(f"{job_id}*"):
+                try:
+                    f.unlink()
+                except Exception:
+                    pass
+            continue
+
+    return None
+
+
 class DownloadRequest(BaseModel):
     url: str
 
@@ -212,11 +304,14 @@ def download_video(request: DownloadRequest):
     job_id = uuid.uuid4().hex
 
     if is_yt:
-        # Bot-proof client strategies for YouTube on datacenter/cloud IPs:
-        # 1. visionos: Modern Apple VisionOS client supported by yt-dlp with full JS signature solving and 1080p/4K formats
-        # 2. android: Mobile client providing format 18 (mp4 progressive) fallback
-        # 3. android_vr: VR client fallback
-        # 4. visionos + android combined fallback
+        # Step 3a: Primary PyTubeFix engine with automated PO-tokens & SABR bypass
+        yt_res = extract_youtube_pytube(expanded_url, job_id)
+        if not yt_res and expanded_url != url:
+            yt_res = extract_youtube_pytube(url, job_id)
+        if yt_res:
+            return yt_res
+
+        # Step 3b: Multi-strategy yt-dlp fallback (visionos, android, android_vr)
         yt_strategies = [
             {"player_client": ["visionos"]},
             {"player_client": ["android"]},
