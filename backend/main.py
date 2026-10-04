@@ -212,18 +212,16 @@ def download_video(request: DownloadRequest):
     job_id = uuid.uuid4().hex
 
     if is_yt:
-        # Multi-tiered bot-resistant player clients for YouTube on datacenter/cloud IPs:
-        # 1. tv_embedded: YouTube TV embedded player, provides full 1080p/4K audio+video streams with zero bot challenge on cloud IPs
-        # 2. android: Official mobile client providing high reliability (format 18 / mp4)
-        # 3. android_vr: VR mobile client
-        # 4. android_creator: Creator studio client
-        # 5. mweb: Mobile web fallback
+        # Bot-proof client strategies for YouTube on datacenter/cloud IPs:
+        # 1. visionos: Modern Apple VisionOS client supported by yt-dlp with full JS signature solving and 1080p/4K formats
+        # 2. android: Mobile client providing format 18 (mp4 progressive) fallback
+        # 3. android_vr: VR client fallback
+        # 4. visionos + android combined fallback
         yt_strategies = [
-            {"player_client": ["tv_embedded"]},
+            {"player_client": ["visionos"]},
             {"player_client": ["android"]},
             {"player_client": ["android_vr"]},
-            {"player_client": ["android_creator"]},
-            {"player_client": ["mweb"]},
+            {"player_client": ["visionos", "android"]},
         ]
         if has_valid_cookies():
             yt_strategies.insert(0, None)
@@ -245,6 +243,11 @@ def download_video(request: DownloadRequest):
                 "extractor_retries": 3,
                 "file_access_retries": 2,
                 "fragment_retries": 2,
+                "js_runtimes": {
+                    "node": {},
+                    "nodejs": {},
+                    "deno": {},
+                },
             }
             if strategy:
                 yt_opts["extractor_args"] = {"youtube": strategy}
@@ -268,13 +271,14 @@ def download_video(request: DownloadRequest):
         if not info:
             raw_msg = str(last_error or "Could not extract YouTube video.")
             clean_msg = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', raw_msg).strip()
-            if "Private video" in clean_msg:
+            clean_msg_normalized = clean_msg.replace("’", "'").replace("“", '"').replace("”", '"').lower()
+            if "private video" in clean_msg_normalized:
                 clean_msg = "This YouTube video is private or restricted by the creator."
-            elif "Video unavailable" in clean_msg:
+            elif "video unavailable" in clean_msg_normalized:
                 clean_msg = "This YouTube video is unavailable or has been removed."
-            elif "Sign in to confirm you're not a bot" in clean_msg or "Failed to extract any player response" in clean_msg:
+            elif "not a bot" in clean_msg_normalized or "sign in to confirm" in clean_msg_normalized or "failed to extract any player response" in clean_msg_normalized:
                 clean_msg = "YouTube temporarily limited this request. Please try again in a few moments."
-            elif "Requested format is not available" in clean_msg:
+            elif "requested format is not available" in clean_msg_normalized:
                 clean_msg = "Could not find a downloadable format for this YouTube video."
             raise HTTPException(status_code=400, detail=clean_msg[:300])
 
@@ -303,6 +307,11 @@ def download_video(request: DownloadRequest):
             "extractor_retries": 3,
             "file_access_retries": 2,
             "fragment_retries": 2,
+            "js_runtimes": {
+                "node": {},
+                "nodejs": {},
+                "deno": {},
+            },
         }
         if has_valid_cookies():
             options["cookiefile"] = str(COOKIES_FILE)
@@ -316,16 +325,17 @@ def download_video(request: DownloadRequest):
         except Exception as exc:
             raw_msg = str(exc)
             clean_msg = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', raw_msg).strip()
+            clean_msg_normalized = clean_msg.replace("’", "'").replace("“", '"').replace("”", '"').lower()
 
-            if "Requested format is not available" in clean_msg:
+            if "requested format is not available" in clean_msg_normalized:
                 clean_msg = "Could not find a downloadable format for this link."
-            elif "Sign in to confirm you're not a bot" in clean_msg:
+            elif "not a bot" in clean_msg_normalized or "sign in to confirm" in clean_msg_normalized:
                 clean_msg = "The platform is temporarily limiting requests. Please try another video or wait 1 minute."
-            elif "Private video" in clean_msg:
+            elif "private video" in clean_msg_normalized:
                 clean_msg = "This video is private or restricted by the creator."
-            elif "Video unavailable" in clean_msg:
+            elif "video unavailable" in clean_msg_normalized:
                 clean_msg = "This video is unavailable or has been removed."
-            elif "This post may not be comfortable" in clean_msg or "Log in for access" in clean_msg:
+            elif "this post may not be comfortable" in clean_msg_normalized or "log in for access" in clean_msg_normalized:
                 clean_msg = "This post is age-restricted or restricted by the platform."
 
             raise HTTPException(status_code=400, detail=clean_msg[:300])
