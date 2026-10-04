@@ -31,6 +31,7 @@ BACKEND_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = BACKEND_DIR.parent
 DOWNLOAD_DIR = BACKEND_DIR / "downloads"
 DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
+COOKIES_FILE = BACKEND_DIR / "cookies.txt"
 
 
 def background_upgrade_ytdlp():
@@ -56,6 +57,7 @@ def api_health():
     return {
         "status": "online",
         "ytdlp_version": getattr(yt_dlp.version, "__version__", "unknown"),
+        "has_cookies": COOKIES_FILE.exists() and COOKIES_FILE.stat().st_size > 50,
         "time": time.time(),
     }
 
@@ -200,16 +202,16 @@ def download_video(request: DownloadRequest):
 
     if is_yt:
         # Multi-tiered client strategies for YouTube:
-        # Strategy 1: Android client (most reliable on cloud/datacenter IPs, bypasses bot checks)
-        # Strategy 2: TV client (bypasses web PO token)
-        # Strategy 3: Android + iOS combined
-        # Strategy 4: Universal default without player_client restrictions
-        yt_strategies = [
+        # If valid cookies exist, try standard authenticated extraction first
+        yt_strategies = []
+        if COOKIES_FILE.exists() and COOKIES_FILE.stat().st_size > 50:
+            yt_strategies.append(None)
+        yt_strategies.extend([
             {"player_client": ["android"]},
             {"player_client": ["tv"]},
             {"player_client": ["android", "ios"]},
             None,
-        ]
+        ])
 
         info = None
         last_error = None
@@ -222,7 +224,7 @@ def download_video(request: DownloadRequest):
                 "noplaylist": True,
                 "quiet": True,
                 "no_warnings": True,
-                "socket_timeout": 25,
+                "socket_timeout": 30,
                 "concurrent_fragment_downloads": 4,
                 "buffersize": 1024 * 64,
                 "http_headers": {
@@ -234,6 +236,8 @@ def download_video(request: DownloadRequest):
                 "file_access_retries": 2,
                 "fragment_retries": 2,
             }
+            if COOKIES_FILE.exists() and COOKIES_FILE.stat().st_size > 50:
+                yt_opts["cookiefile"] = str(COOKIES_FILE)
             if strategy:
                 yt_opts["extractor_args"] = {"youtube": strategy}
 
@@ -273,7 +277,7 @@ def download_video(request: DownloadRequest):
             "noplaylist": True,
             "quiet": True,
             "no_warnings": True,
-            "socket_timeout": 25,
+            "socket_timeout": 30,
             "concurrent_fragment_downloads": 4,
             "buffersize": 1024 * 64,
             "extractor_args": {
@@ -290,6 +294,9 @@ def download_video(request: DownloadRequest):
             "file_access_retries": 2,
             "fragment_retries": 2,
         }
+        if COOKIES_FILE.exists() and COOKIES_FILE.stat().st_size > 50:
+            options["cookiefile"] = str(COOKIES_FILE)
+
 
         try:
             with yt_dlp.YoutubeDL(options) as ydl:
