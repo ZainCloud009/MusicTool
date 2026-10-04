@@ -10,3 +10,4 @@ backend/downloads/*
 .kilocode/
 *.log
 .DS_Store
+*cookies.txt

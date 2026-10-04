@@ -52,12 +52,23 @@ def on_startup():
     threading.Thread(target=background_upgrade_ytdlp, daemon=True).start()
 
 
+def has_valid_cookies() -> bool:
+    """Check if cookies.txt exists and contains actual authenticated user session tokens."""
+    if not COOKIES_FILE.exists() or COOKIES_FILE.stat().st_size < 50:
+        return False
+    try:
+        content = COOKIES_FILE.read_text(encoding="utf-8", errors="ignore")
+        return any(k in content for k in ("LOGIN_INFO", "SAPISID", "SID", "SSID", "__Secure-3PAPISID"))
+    except Exception:
+        return False
+
+
 @app.get("/api/health")
 def api_health():
     return {
         "status": "online",
         "ytdlp_version": getattr(yt_dlp.version, "__version__", "unknown"),
-        "has_cookies": COOKIES_FILE.exists() and COOKIES_FILE.stat().st_size > 50,
+        "has_cookies": has_valid_cookies(),
         "time": time.time(),
     }
 
@@ -82,8 +93,8 @@ def is_youtube_url(url: str) -> bool:
 
 
 def normalize_youtube_url(url: str) -> str:
-    """Normalize YouTube links (shorts, youtu.be, mobile) into standard watch URLs, stripping extraneous query params."""
-    m = re.search(r'(?:youtu\.be/|youtube\.com/(?:watch\?.*v=|embed/|v/|shorts/))([a-zA-Z0-9_-]{11})', url)
+    """Normalize YouTube links (shorts, youtu.be, mobile, live, music) into standard watch URLs, stripping extraneous query params."""
+    m = re.search(r'(?:youtu\.be/|(?:[a-zA-Z0-9_-]+\.)?youtube\.com/(?:watch\?.*?v=|embed/|v/|shorts/|live/))([a-zA-Z0-9_-]{11})', url)
     if m:
         return f"https://www.youtube.com/watch?v={m.group(1)}"
     return url
@@ -201,17 +212,21 @@ def download_video(request: DownloadRequest):
     job_id = uuid.uuid4().hex
 
     if is_yt:
-        # Multi-tiered client strategies for YouTube:
-        # If valid cookies exist, try standard authenticated extraction first
-        yt_strategies = []
-        if COOKIES_FILE.exists() and COOKIES_FILE.stat().st_size > 50:
-            yt_strategies.append(None)
-        yt_strategies.extend([
+        # Multi-tiered bot-resistant player clients for YouTube on datacenter/cloud IPs:
+        # 1. tv_embedded: YouTube TV embedded player, provides full 1080p/4K audio+video streams with zero bot challenge on cloud IPs
+        # 2. android: Official mobile client providing high reliability (format 18 / mp4)
+        # 3. android_vr: VR mobile client
+        # 4. android_creator: Creator studio client
+        # 5. mweb: Mobile web fallback
+        yt_strategies = [
+            {"player_client": ["tv_embedded"]},
             {"player_client": ["android"]},
-            {"player_client": ["tv"]},
-            {"player_client": ["android", "ios"]},
-            None,
-        ])
+            {"player_client": ["android_vr"]},
+            {"player_client": ["android_creator"]},
+            {"player_client": ["mweb"]},
+        ]
+        if has_valid_cookies():
+            yt_strategies.insert(0, None)
 
         info = None
         last_error = None
@@ -219,7 +234,7 @@ def download_video(request: DownloadRequest):
         for strategy in yt_strategies:
             yt_opts = {
                 "outtmpl": str(DOWNLOAD_DIR / f"{job_id}.%(ext)s"),
-                "format": "best[ext=mp4]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best",
+                "format": "best[ext=mp4]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/18/bestvideo+bestaudio/best",
                 "merge_output_format": "mp4",
                 "noplaylist": True,
                 "quiet": True,
@@ -227,19 +242,14 @@ def download_video(request: DownloadRequest):
                 "socket_timeout": 30,
                 "concurrent_fragment_downloads": 4,
                 "buffersize": 1024 * 64,
-                "http_headers": {
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                    "Accept-Language": "en-US,en;q=0.9",
-                },
                 "extractor_retries": 3,
                 "file_access_retries": 2,
                 "fragment_retries": 2,
             }
-            if COOKIES_FILE.exists() and COOKIES_FILE.stat().st_size > 50:
-                yt_opts["cookiefile"] = str(COOKIES_FILE)
             if strategy:
                 yt_opts["extractor_args"] = {"youtube": strategy}
+            if has_valid_cookies():
+                yt_opts["cookiefile"] = str(COOKIES_FILE)
 
             try:
                 with yt_dlp.YoutubeDL(yt_opts) as ydl:
@@ -294,7 +304,7 @@ def download_video(request: DownloadRequest):
             "file_access_retries": 2,
             "fragment_retries": 2,
         }
-        if COOKIES_FILE.exists() and COOKIES_FILE.stat().st_size > 50:
+        if has_valid_cookies():
             options["cookiefile"] = str(COOKIES_FILE)
 
 
