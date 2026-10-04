@@ -1,4 +1,5 @@
-from pathlib import Path
+import os
+import shutil
 import uuid
 import re
 import time
@@ -9,6 +10,17 @@ import threading
 import subprocess
 import urllib.request
 import urllib.parse
+from pathlib import Path
+
+# Ensure pytubefix uses working system node if wheel node is missing or non-executable
+try:
+    import pytubefix.botGuard.bot_guard as bg
+    if not (os.path.exists(bg.NODE_PATH) and os.access(bg.NODE_PATH, os.X_OK)):
+        sys_node = shutil.which("node") or shutil.which("nodejs") or "/usr/bin/node"
+        if sys_node and os.path.exists(sys_node):
+            bg.NODE_PATH = sys_node
+except Exception:
+    pass
 
 import yt_dlp
 from fastapi import FastAPI, HTTPException, Request
@@ -67,10 +79,43 @@ def has_valid_cookies() -> bool:
 def api_health():
     return {
         "status": "online",
+        "version": "2.3.0-pytubefix",
         "ytdlp_version": getattr(yt_dlp.version, "__version__", "unknown"),
         "has_cookies": has_valid_cookies(),
         "time": time.time(),
     }
+
+
+@app.get("/api/debug_yt")
+def debug_yt(url: str = "https://youtu.be/3j7bhOvW6jw"):
+    log = []
+    log.append(f"sys.executable: {sys.executable}")
+    log.append(f"shutil.which('node'): {shutil.which('node')}")
+    log.append(f"shutil.which('ffmpeg'): {shutil.which('ffmpeg')}")
+    try:
+        import pytubefix
+        log.append(f"pytubefix version: {getattr(pytubefix, '__version__', 'unknown')}")
+        import pytubefix.botGuard.bot_guard as bg
+        log.append(f"bg.NODE_PATH: {bg.NODE_PATH} exists={os.path.exists(bg.NODE_PATH)}")
+        try:
+            token = bg.generate_po_token("3j7bhOvW6jw")
+            log.append(f"token: {token[:25]}... (len={len(token)})")
+        except Exception as te:
+            log.append(f"generate_po_token error: {te}")
+    except Exception as pe:
+        log.append(f"pytubefix import error: {pe}")
+
+    for client in ["WEB", "ANDROID"]:
+        try:
+            from pytubefix import YouTube
+            yt = YouTube(url, client=client)
+            log.append(f"client {client} title: {yt.title}")
+            v = yt.streams.filter(type="video", file_extension="mp4").order_by("resolution").desc().first()
+            log.append(f"client {client} best video stream: {v}")
+        except Exception as ce:
+            log.append(f"client {client} error: {ce}")
+
+    return {"log": log}
 
 
 def cleanup_old_files(max_age_seconds: int = 3600):
@@ -259,7 +304,8 @@ def extract_youtube_pytube(url: str, job_id: str):
                     "preview_url": f"/api/file/{target_file.name}?name={quoted_name}&dl=0",
                     "download_url": f"/api/file/{target_file.name}?name={quoted_name}&dl=1"
                 }
-        except Exception:
+        except Exception as exc:
+            print(f"[pytubefix] client={client} error: {exc}", flush=True)
             for f in DOWNLOAD_DIR.glob(f"{job_id}*"):
                 try:
                     f.unlink()
